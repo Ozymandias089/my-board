@@ -52,7 +52,7 @@ export default async function PostDetailPage({ params }: PageProps) {
               </CardDescription>
             </div>
 
-            <PostActionsMenu postId={post.id} createdAt={post.createdAt} />
+            <PostActionsMenu postId={post.id} createdAt={post.createdAt} postTitle={post.title} />
           </CardHeader>
 
           <CardContent>
