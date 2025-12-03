@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import {
   Card,
   CardHeader,
@@ -10,8 +12,36 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  Dialog,            // ★ 추가
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+
+import { Button } from "@/components/ui/button";
+import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+
 // Prisma에서 오는 Post 타입을 대략적으로 정의
-// (createdAt은 서버/클라 직렬화 과정에서 string으로 들어올 가능성이 커서 union)
 type Post = {
   id: number;
   handle: string;
@@ -33,13 +63,23 @@ export function PostList({
   initialNextCursor,
   initialHasMore,
 }: PostListProps) {
+  const router = useRouter();
+
   const [posts, setPosts] = useState<Post[]>(initialPosts);
-  const [nextCursor, setNextCursor] = useState<number | null>(initialNextCursor);
+  const [nextCursor, setNextCursor] = useState<number | null>(
+    initialNextCursor
+  );
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // ★ 삭제 Dialog 관련 상태
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Post | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || !nextCursor) return;
@@ -59,8 +99,7 @@ export function PostList({
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        const message =
-          data?.error?.message || "Failed to load more posts.";
+        const message = data?.error?.message || "Failed to load more posts.";
         setLoadError(message);
         return;
       }
@@ -89,13 +128,12 @@ export function PostList({
       (entries) => {
         const [entry] = entries;
         if (entry.isIntersecting) {
-          // 살짝 늦게 호출해서 중복 트리거 줄이기
           loadMore();
         }
       },
       {
         root: null,
-        rootMargin: "200px 0px", // 200px 전에 미리 불러오기
+        rootMargin: "200px 0px",
         threshold: 0.1,
       }
     );
@@ -107,76 +145,235 @@ export function PostList({
     };
   }, [hasMore, loadMore]);
 
+  // ★ 삭제 confirm 핸들러
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/posts/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message =
+          data?.error?.message || "Failed to delete this post.";
+        setDeleteError(message);
+        return;
+      }
+
+      // 목록에서 제거 (Optimistic UI)
+      setPosts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+    } catch (e) {
+      console.error(e);
+      setDeleteError(
+        "An unexpected error occurred while deleting the post.",
+      );
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   return (
-    <section className="flex flex-col gap-4">
-      {posts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No posts available. Be the one to write new post!
-        </p>
-      ) : (
-        posts.map((post) => {
-          const createdAt =
-            typeof post.createdAt === "string"
-              ? new Date(post.createdAt)
-              : post.createdAt;
+    <>
+      <section className="flex flex-col gap-4">
+        {posts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No posts available. Be the one to write new post!
+          </p>
+        ) : (
+          posts.map((post) => {
+            const createdAt =
+              typeof post.createdAt === "string"
+                ? new Date(post.createdAt)
+                : post.createdAt;
 
-          const preview =
-            post.content.length > 100
-              ? post.content.slice(0, 100) + "..."
-              : post.content;
+            const preview =
+              post.content.length > 100
+                ? post.content.slice(0, 100) + "..."
+                : post.content;
 
-          return (
-            <Link key={post.id} href={`/posts/${post.id}`} className="block">
-              <Card className="hover:bg-accent/60 transition-colors cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-lg">{post.title}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {post.handle} · {createdAt.toLocaleDateString()}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {preview}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })
-      )}
+            return (
+              <ContextMenu key={post.id}>
+                <ContextMenuTrigger asChild>
+                  <Link href={`/posts/${post.id}`} className="block">
+                    <Card className="relative hover:bg-accent/60 transition-colors cursor-pointer">
+                      {/* 우측 상단 케밥 메뉴 */}
+                      <div className="absolute top-2 right-2 z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            className="p-1 rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <MoreVertical className="w-4 h-4 text-muted-foreground" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                router.push(`/posts/${post.id}/edit`);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // ★ 삭제 Dialog 띄울 타겟 설정
+                                setDeleteTarget(post);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-      {/* 무한스크롤용 sentinel + 로딩/에러 표시 영역 */}
-      <div ref={sentinelRef} className="h-10">
-        {/* sentinel 자체는 눈에 안 보여도 되지만, 안쪽에서 로딩/에러를 같이 표시하면 편함 */}
-      </div>
+                      <CardHeader>
+                        <CardTitle className="text-lg">
+                          {post.title}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                          {post.handle} · {createdAt.toLocaleDateString()}
+                        </p>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                          {preview}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </ContextMenuTrigger>
 
-      {loadingMore && (
-        <div className="space-y-4">
-          <Card className="w-full border shadow-sm">
-            <CardHeader className="space-y-2">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-3 w-1/3" />
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-5/6" />
-              <Skeleton className="h-3 w-2/3" />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                {/* 우클릭/롱프레스 컨텍스트 메뉴 */}
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    onClick={() => {
+                      router.push(`/posts/${post.id}/edit`);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Edit
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => {
+                      // ★ 컨텍스트 메뉴에서도 삭제 Dialog 호출
+                      setDeleteTarget(post);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            );
+          })
+        )}
 
-      {loadError && (
-        <p className="text-xs text-destructive text-center mt-2">
-          {loadError}
-        </p>
-      )}
+        <div ref={sentinelRef} className="h-10" />
 
-      {!hasMore && posts.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          You&apos;ve reached the end.
-        </p>
-      )}
-    </section>
+        {loadingMore && (
+          <div className="space-y-4">
+            <Card className="w-full border shadow-sm">
+              <CardHeader className="space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-1/3" />
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-5/6" />
+                <Skeleton className="h-3 w-2/3" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {loadError && (
+          <p className="text-xs text-destructive text-center mt-2">
+            {loadError}
+          </p>
+        )}
+
+        {!hasMore && posts.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center mt-4">
+            You&apos;ve reached the end.
+          </p>
+        )}
+      </section>
+
+      {/* ★ 삭제 확인 Dialog (PostList 전체에서 공용으로 사용) */}
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteError(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this post?</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete
+              <br />
+              <span className="font-medium">
+                {deleteTarget?.title ?? "this post"}
+              </span>
+              .
+            </DialogDescription>
+          </DialogHeader>
+
+          {deleteError && (
+            <p className="text-xs text-destructive mb-2">
+              {deleteError}
+            </p>
+          )}
+
+          <DialogFooter className="flex justify-end gap-2">
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleteLoading}
+                onClick={() => {
+                  setDeleteTarget(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleteLoading}
+              onClick={handleConfirmDelete}
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
