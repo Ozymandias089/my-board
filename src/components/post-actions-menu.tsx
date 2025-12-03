@@ -23,13 +23,20 @@ import { Button } from "./ui/button";
 
 interface PostActionsMenuProps {
   postId: number;
+  createdAt: string | Date;
 }
 
-export function PostActionsMenu({ postId }: PostActionsMenuProps) {
+const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function PostActionsMenu({ postId, createdAt }: PostActionsMenuProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const created =
+    typeof createdAt === "string" ? new Date(createdAt) : createdAt;
+  const canEdit = Date.now() - created.getTime() <= EDIT_WINDOW_MS;
 
   async function handleDelete() {
     setLoading(true);
@@ -65,7 +72,9 @@ export function PostActionsMenu({ postId }: PostActionsMenuProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
+            disabled={!canEdit}
             onClick={() => {
+              if (!canEdit) return;
               router.push(`/posts/${postId}/edit`);
             }}
           >
@@ -95,7 +104,7 @@ export function PostActionsMenu({ postId }: PostActionsMenuProps) {
             </DialogDescription>
           </DialogHeader>
 
-          { error && ( <p className="text-xs text-destructive mb-2">{error}</p> ) }
+          {error && <p className="text-xs text-destructive mb-2">{error}</p>}
 
           <DialogFooter className="flex justify-end gap-2">
             <DialogClose asChild>

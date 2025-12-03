@@ -4,12 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -29,7 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import {
-  Dialog,            // ★ 추가
+  Dialog, // ★ 추가
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -159,8 +154,7 @@ export function PostList({
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        const message =
-          data?.error?.message || "Failed to delete this post.";
+        const message = data?.error?.message || "Failed to delete this post.";
         setDeleteError(message);
         return;
       }
@@ -172,9 +166,7 @@ export function PostList({
       setDeleteTarget(null);
     } catch (e) {
       console.error(e);
-      setDeleteError(
-        "An unexpected error occurred while deleting the post.",
-      );
+      setDeleteError("An unexpected error occurred while deleting the post.");
     } finally {
       setDeleteLoading(false);
     }
@@ -199,6 +191,9 @@ export function PostList({
                 ? post.content.slice(0, 100) + "..."
                 : post.content;
 
+            const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+            const canEdit = Date.now() - createdAt.getTime() <= EDIT_WINDOW_MS;
+
             return (
               <ContextMenu key={post.id}>
                 <ContextMenuTrigger asChild>
@@ -218,7 +213,9 @@ export function PostList({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
+                              disabled={!canEdit}
                               onClick={(e) => {
+                                if (!canEdit) return;
                                 e.preventDefault();
                                 e.stopPropagation();
                                 router.push(`/posts/${post.id}/edit`);
@@ -226,6 +223,11 @@ export function PostList({
                             >
                               <Pencil className="w-4 h-4 mr-2" />
                               Edit
+                              {!canEdit && (
+                                <span className="ml-2 text-[10px] uppercase text-muted-foreground">
+                                  expired
+                                </span>
+                              )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -246,9 +248,7 @@ export function PostList({
                       </div>
 
                       <CardHeader>
-                        <CardTitle className="text-lg">
-                          {post.title}
-                        </CardTitle>
+                        <CardTitle className="text-lg">{post.title}</CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {post.handle} · {createdAt.toLocaleDateString()}
                         </p>
@@ -265,12 +265,19 @@ export function PostList({
                 {/* 우클릭/롱프레스 컨텍스트 메뉴 */}
                 <ContextMenuContent>
                   <ContextMenuItem
+                    disabled={!canEdit}
                     onClick={() => {
+                      if (!canEdit) return;
                       router.push(`/posts/${post.id}/edit`);
                     }}
                   >
                     <Pencil className="w-4 h-4 mr-2" />
                     Edit
+                    {!canEdit && (
+                      <span className="ml-2 text-[10px] uppercase text-muted-foreground">
+                        expired
+                      </span>
+                    )}
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem
@@ -345,9 +352,7 @@ export function PostList({
           </DialogHeader>
 
           {deleteError && (
-            <p className="text-xs text-destructive mb-2">
-              {deleteError}
-            </p>
+            <p className="text-xs text-destructive mb-2">{deleteError}</p>
           )}
 
           <DialogFooter className="flex justify-end gap-2">
