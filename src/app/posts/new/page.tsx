@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,12 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-
-// ★ 추가: shadcn Alert + 아이콘
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export default function NewPostPage() {
   const router = useRouter();
@@ -34,6 +36,32 @@ export default function NewPostPage() {
     title?: string;
     content?: string;
   }>({});
+
+  const [showPreview, setShowPreview] = useState(true);
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [formHeight, setFormHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!formRef.current || typeof ResizeObserver === "undefined") return;
+
+    const el = formRef.current;
+
+    // 초기 높이 세팅
+    setFormHeight(el.offsetHeight);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const h = entry.contentRect.height;
+      setFormHeight(h);
+    });
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,156 +143,207 @@ export default function NewPostPage() {
   return (
     <main className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
       {/* 화면 전체에서 가운데 정렬 + 최대 폭만 제한 */}
-      <div className="w-full max-w-[900px]">
+      <div className="w-full max-w-[1000px]">
         <Card className="w-full shadow-sm border border-border/80">
           <CardHeader className="pb-4">
-            <CardTitle className="text-2xl font-semibold">
-              Write a new post
-            </CardTitle>
-            <CardDescription>
-              Share your thoughts with the community.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-2xl font-semibold">
+                  Write a new post
+                </CardTitle>
+                <CardDescription>
+                  Share your thoughts with the community.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Preview</span>
+                <Switch
+                  checked={showPreview}
+                  onCheckedChange={setShowPreview}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
           </CardHeader>
 
           <CardContent className="pt-0 pb-6">
-            <form onSubmit={onSubmit} className="w-full">
-              {/* 실제 폼 콘텐츠 폭: 모바일에서는 100%, sm 이상에서만 고정 */}
-              <div className="space-y-6 w-full">
-                {/* ★ 추가: 상단 공통 에러(Alert) */}
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Handle */}
-                <div className="space-y-2">
-                  <Label htmlFor="handle" className="text-sm font-semibold">
-                    Handle
-                  </Label>
-                  <Input
-                    id="handle"
-                    placeholder="e.g. backend_lover"
-                    value={handle}
-                    onChange={(e) => setHandle(e.target.value)}
-                    disabled={submitting}
-                    // ★ 수정: 에러 시 빨간 테두리 + 접근성 속성
-                    className={`w-full ${
-                      fieldErrors.handle
-                        ? "border-destructive focus-visible:ring-destructive"
-                        : ""
-                    }`}
-                    aria-invalid={!!fieldErrors.handle}
-                    aria-describedby={
-                      fieldErrors.handle ? "handle-error" : undefined
-                    }
-                  />
-                  <p className="text-xs leading-snug text-muted-foreground mt-1">
-                    3–24 characters, letters, numbers, “_” and “-” only. No
-                    spaces.
-                  </p>
-                  {/* ★ 추가: 핸들 에러 메시지 */}
-                  {fieldErrors.handle && (
-                    <p
-                      id="handle-error"
-                      className="text-xs text-destructive mt-1"
-                    >
-                      {fieldErrors.handle}
-                    </p>
+            {/* ★ 작성 폼 + 미리보기 2열 레이아웃
+                - 모바일: 위(폼) / 아래(미리보기)
+                - md 이상: 좌(폼) / 우(미리보기) + 세퍼레이터 느낌의 보더 */}
+            <div
+              className={
+                showPreview
+                  ? "flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] md:gap-8"
+                  : "flex flex-col"
+              }
+            >
+              {/* 폼 영역 */}
+              <form ref={formRef} onSubmit={onSubmit} className="w-full">
+                <div className="space-y-6 w-full">
+                  {/* 상단 공통 에러(Alert) */}
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Error</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
                   )}
-                </div>
 
-                {/* Title */}
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="title" className="text-sm font-semibold">
-                    Title
-                  </Label>
-                  <Input
-                    id="title"
-                    placeholder="Enter a short title for your post"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    disabled={submitting}
-                    // ★ 수정: 타이틀 에러 시 스타일
-                    className={`w-full ${
-                      fieldErrors.title
-                        ? "border-destructive focus-visible:ring-destructive"
-                        : ""
-                    }`}
-                    aria-invalid={!!fieldErrors.title}
-                    aria-describedby={
-                      fieldErrors.title ? "title-error" : undefined
-                    }
-                  />
-                  {/* ★ 추가: 타이틀 에러 메시지 */}
-                  {fieldErrors.title && (
-                    <p
-                      id="title-error"
-                      className="text-xs text-destructive mt-1"
-                    >
-                      {fieldErrors.title}
+                  {/* Handle */}
+                  <div className="space-y-2">
+                    <Label htmlFor="handle" className="text-sm font-semibold">
+                      Handle
+                    </Label>
+                    <Input
+                      id="handle"
+                      placeholder="e.g. backend_lover"
+                      value={handle}
+                      onChange={(e) => setHandle(e.target.value)}
+                      disabled={submitting}
+                      className={`w-full ${
+                        fieldErrors.handle
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                      aria-invalid={!!fieldErrors.handle}
+                      aria-describedby={
+                        fieldErrors.handle ? "handle-error" : undefined
+                      }
+                    />
+                    <p className="text-xs leading-snug text-muted-foreground mt-1">
+                      3–24 characters, letters, numbers, “_” and “-” only. No
+                      spaces.
                     </p>
-                  )}
-                </div>
+                    {fieldErrors.handle && (
+                      <p
+                        id="handle-error"
+                        className="text-xs text-destructive mt-1"
+                      >
+                        {fieldErrors.handle}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Content */}
-                <div className="space-y-2 w-full">
-                  <Label htmlFor="content" className="text-sm font-semibold">
-                    Content
-                  </Label>
-                  <Textarea
-                    id="content"
-                    placeholder="What would you like to talk about?"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    disabled={submitting}
-                    className={`w-full min-h-[220px] sm:min-h-[280px] resize-y ${
-                      fieldErrors.content
-                        ? "border-destructive focus-visible:ring-destructive"
-                        : ""
-                    }`} // ★ 수정: 내용 에러 시 스타일
-                    rows={10}
-                    aria-invalid={!!fieldErrors.content}
-                    aria-describedby={
-                      fieldErrors.content ? "content-error" : undefined
-                    }
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports basic Markdown (headings, lists, **bold**,
-                    _italic_, etc.).
-                  </p>
+                  {/* Title */}
+                  <div className="space-y-2 w-full">
+                    <Label htmlFor="title" className="text-sm font-semibold">
+                      Title
+                    </Label>
+                    <Input
+                      id="title"
+                      placeholder="Enter a short title for your post"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      disabled={submitting}
+                      className={`w-full ${
+                        fieldErrors.title
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                      aria-invalid={!!fieldErrors.title}
+                      aria-describedby={
+                        fieldErrors.title ? "title-error" : undefined
+                      }
+                    />
+                    {fieldErrors.title && (
+                      <p
+                        id="title-error"
+                        className="text-xs text-destructive mt-1"
+                      >
+                        {fieldErrors.title}
+                      </p>
+                    )}
+                  </div>
 
-                  {/* ★ 추가: 내용 에러 메시지 */}
-                  {fieldErrors.content && (
-                    <p
-                      id="content-error"
-                      className="text-xs text-destructive mt-1"
-                    >
-                      {fieldErrors.content}
+                  {/* Content */}
+                  <div className="space-y-2 w-full">
+                    <Label htmlFor="content" className="text-sm font-semibold">
+                      Content
+                    </Label>
+                    <Textarea
+                      id="content"
+                      placeholder="What would you like to talk about?"
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      disabled={submitting}
+                      className={`w-full min-h-[220px] sm:min-h-[280px] resize-y ${
+                        fieldErrors.content
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }`}
+                      rows={10}
+                      aria-invalid={!!fieldErrors.content}
+                      aria-describedby={
+                        fieldErrors.content ? "content-error" : undefined
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Supports basic Markdown (headings, lists, **bold**,
+                      _italic_, etc.).
                     </p>
-                  )}
-                </div>
+                    {fieldErrors.content && (
+                      <p
+                        id="content-error"
+                        className="text-xs text-destructive mt-1"
+                      >
+                        {fieldErrors.content}
+                      </p>
+                    )}
+                  </div>
 
-                {/* 기존 에러 <p> 블록은 Alert로 대체됨 */}
-
-                {/* Buttons */}
-                <div className="flex items-center justify-end gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    onClick={() => router.back()}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? "Publishing..." : "Publish"}
-                  </Button>
+                  {/* Buttons */}
+                  <div className="flex items-center justify-end gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submitting}
+                      onClick={() => router.back()}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? "Publishing..." : "Publish"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
+
+              {/* ★ 미리보기 패널 */}
+              {showPreview && (
+                <div 
+                  className="border-t pt-4 md:border-t-0 md:pt-0 md:border-l md:pl-6 md:overflow-hidden"
+                  style={
+                    formHeight
+                      ? { height: formHeight }
+                      : undefined
+                  }
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                      Preview
+                    </span>
+                  </div>
+
+                  <ScrollArea className="h-full pr-3">
+                    <article className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ node, ...props }) => (
+                            <p
+                              className="whitespace-pre-wrap leading-relaxed"
+                              {...props}
+                            />
+                          ),
+                        }}
+                      >
+                        {content.trim() || "_Nothing to preview yet._"}
+                      </ReactMarkdown>
+                    </article>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
