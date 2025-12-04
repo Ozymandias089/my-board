@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Trash2, Share2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostDeleteDialog } from "./post-delete-dialog";
 import { EDIT_WINDOW_MS } from "@/lib/constants";
+import { ShareLinkDialog } from "./share-dialog";
 
 interface PostActionsMenuProps {
   postId: number;
@@ -28,6 +29,8 @@ export function PostActionsMenu({
 }: PostActionsMenuProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   const created =
     typeof createdAt === "string" ? new Date(createdAt) : createdAt;
@@ -41,8 +44,7 @@ export function PostActionsMenu({
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        const message =
-          data?.error?.message || "Failed to delete this post.";
+        const message = data?.error?.message || "Failed to delete this post.";
         alert(message);
         return;
       }
@@ -96,6 +98,24 @@ export function PostActionsMenu({
             )}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
+
+          {/* ⭐ 공유 버튼 */}
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+
+              const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+              setShareUrl(`${base}/posts/${postId}`);
+              setShareOpen(true);
+            }}
+          >
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onClick={(e) => {
@@ -116,6 +136,12 @@ export function PostActionsMenu({
         onOpenChange={setDeleteOpen}
         postTitle={postTitle}
         onConfirm={handleConfirmDelete}
+      />
+      {/* ⭐ 공유 다이얼로그 */}
+      <ShareLinkDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        url={shareUrl}
       />
     </>
   );

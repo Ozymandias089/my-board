@@ -16,10 +16,11 @@ import {
 } from "@/components/ui/context-menu";
 
 import { PostDeleteDialog } from "./post-delete-dialog";
-import { Pencil, Trash2, MessageCircle } from "lucide-react";
+import { Pencil, Trash2, MessageCircle, Share2 } from "lucide-react";
 import { PostActionsMenu } from "./post-actions-menu";
 import { EDIT_WINDOW_MS, POSTS_PAGE_SIZE } from "@/lib/constants";
 import { Button } from "./ui/button";
+import { ShareLinkDialog } from "./share-dialog";
 
 // Prisma에서 오는 Post 타입을 대략적으로 정의
 type Post = {
@@ -55,6 +56,9 @@ export function PostList({
   // ★ 삭제 다이얼로그 상태
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Post | null>(null);
+
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -179,7 +183,7 @@ export function PostList({
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            router.push(`/posts/${post.id}#comments`)
+                            router.push(`/posts/${post.id}#comments`);
                           }}
                         >
                           <MessageCircle className="w-4 h-4" />
@@ -207,6 +211,21 @@ export function PostList({
                       expired
                     </span>
                   )}
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+
+                <ContextMenuItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+                    setShareUrl(`${base}/posts/${post.id}`);
+                    setShareDialogOpen(true);
+                  }}
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
                 </ContextMenuItem>
                 <ContextMenuSeparator />
 
@@ -292,6 +311,11 @@ export function PostList({
             alert("An unexpected error occurred while deleting the post.");
           }
         }}
+      />
+      <ShareLinkDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        url={shareUrl}
       />
     </section>
   );
