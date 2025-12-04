@@ -15,6 +15,7 @@ import {
   MoreVertical,
   Trash2,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +47,11 @@ export interface CommentItemProps {
 
   onReplySubmit: (parentId: number) => void;
   onDeleteClick: (id: number) => void;
+
+  onEditSubmit: (
+    id: number,
+    content: string
+  ) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export function CommentItem(props: CommentItemProps) {
@@ -67,7 +73,14 @@ export function CommentItem(props: CommentItemProps) {
 
   const hasReplies = node.replies.length > 0;
   const created = new Date(node.createdAt);
+  const updated = new Date(node.updatedAt);
+  const isEdited = updated.getTime() !== created.getTime();
   const [open, setOpen] = useState(true);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(node.content);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const displayContent = node.isDeleted ? "[deleted]" : node.content;
   const displayHandle = node.isDeleted ? "[deleted]" : node.handle;
@@ -102,6 +115,11 @@ export function CommentItem(props: CommentItemProps) {
               <span className="font-medium">{displayHandle}</span>
               <span>·</span>
               <span>{created.toLocaleString()}</span>
+              {(isEdited && !node.isDeleted) && (
+                <span className="text-[10px] uppercase text-muted-foreground ml-1">
+                  [edited]
+                </span>
+              )}
 
               {!node.isDeleted && (
                 <div className="ml-auto flex items-center gap-2">
@@ -130,10 +148,15 @@ export function CommentItem(props: CommentItemProps) {
                     <DropdownMenuContent align="end" className="w-32">
                       <DropdownMenuItem
                         onClick={() => {
-                          // Edit 스텁
-                          alert("Edit is not implemented yet.");
+                          if (node.isDeleted) return;
+                          setEditValue(node.content);
+                          setEditError(null);
+                          setIsEditing(true);
+                          // 편집 들어갈 때는 답글 타겟은 해제해 주는 것도 자연스러움
+                          setReplyTargetId(null);
                         }}
                       >
+                        <Pencil className="w-3 h-3 mr-2" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
@@ -151,15 +174,85 @@ export function CommentItem(props: CommentItemProps) {
 
             {/* 내용 + 대댓글 + 인라인 reply 폼 → 모두 접히는 영역 */}
             <CollapsibleContent>
-              {/* 본문 */}
-              <p
-                className={cn(
-                  "mt-1 whitespace-pre-wrap leading-relaxed",
-                  node.isDeleted && "italic text-muted-foreground"
-                )}
-              >
-                {displayContent}
-              </p>
+              {/* 본문 or 편집 폼 */}
+              {isEditing && !node.isDeleted ? (
+                <div className="mt-2 space-y-2">
+                  {editError && (
+                    <Alert variant="destructive">
+                      <AlertDescription className="text-xs">
+                        {editError}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Textarea
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    rows={3}
+                    disabled={editSubmitting}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-xs"
+                      disabled={editSubmitting}
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditError(null);
+                        setEditValue(node.content); // 취소하면 원래 내용으로
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-7 px-3 text-xs"
+                      disabled={editSubmitting}
+                      onClick={async () => {
+                        setEditError(null);
+                        const result = await (async () => {
+                          const trimmed = editValue.trim();
+                          if (!trimmed) {
+                            return {
+                              ok: false,
+                              message: "Content is required.",
+                            } as const;
+                          }
+                          setEditSubmitting(true);
+                          const r = await props.onEditSubmit(node.id, trimmed);
+                          setEditSubmitting(false);
+                          return r;
+                        })();
+
+                        if (!result.ok) {
+                          setEditError(
+                            result.message ?? "Failed to update comment."
+                          );
+                        } else {
+                          setIsEditing(false);
+                        }
+                      }}
+                    >
+                      {editSubmitting && (
+                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      )}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p
+                  className={cn(
+                    "mt-1 whitespace-pre-wrap leading-relaxed",
+                    node.isDeleted && "italic text-muted-foreground"
+                  )}
+                >
+                  {displayContent}
+                </p>
+              )}
 
               {/* 이 댓글에 대한 reply 폼 (바로 아래) */}
               {isReplyingHere && !node.isDeleted && (
@@ -240,6 +333,7 @@ export function CommentItem(props: CommentItemProps) {
                       setReplyError={setReplyError}
                       onReplySubmit={onReplySubmit}
                       onDeleteClick={onDeleteClick}
+                      onEditSubmit={props.onEditSubmit}
                     />
                   ))}
                 </div>

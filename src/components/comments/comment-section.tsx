@@ -45,8 +45,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
         const res = await fetch(`/api/posts/${postId}/comments`);
         if (!res.ok) {
           const data = await res.json().catch(() => null);
-          const msg =
-            data?.error?.message || "Failed to load comments.";
+          const msg = data?.error?.message || "Failed to load comments.";
           if (!canceled) setLoadError(msg);
           return;
         }
@@ -197,6 +196,49 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
     }
   }
 
+  async function handleEditComment(
+    id: number,
+    content: string
+  ): Promise<{ ok: boolean; message?: string }> {
+    const trimmed = content.trim();
+
+    if (!trimmed) {
+      return { ok: false, message: "Content is required." };
+    }
+
+    if (trimmed.length > MAX_COMMENT_LENGTH) {
+      return {
+        ok: false,
+        message: `Content exceeds maximum length of ${MAX_COMMENT_LENGTH.toLocaleString()} characters.`,
+      };
+    }
+
+    try {
+      const res = await fetch(`/api/comments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: trimmed }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const msg = data?.error?.message || "Failed to update comment.";
+        return { ok: false, message: msg };
+      }
+
+      const updated = (await res.json()) as Comment;
+
+      setComments((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c))
+      );
+
+      return { ok: true };
+    } catch (e) {
+      console.error(e);
+      return { ok: false, message: "An unexpected error occurred." };
+    }
+  }
+
   async function handleDeleteComment(id: number) {
     if (!confirm("Delete this comment? This will mark it as [deleted].")) {
       return;
@@ -299,6 +341,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
                   setReplyError={setReplyError}
                   onReplySubmit={handleCreateReply}
                   onDeleteClick={handleDeleteComment}
+                  onEditSubmit={handleEditComment}
                 />
               ))}
             </div>
