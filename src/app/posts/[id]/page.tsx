@@ -12,6 +12,7 @@ import { ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PostActionsMenu } from "@/components/post-actions-menu";
+import { CommentsSection } from "@/components/comments/comment-section"; 
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -73,6 +74,8 @@ export default async function PostDetailPage({ params }: PageProps) {
             </article>
           </CardContent>
         </Card>
+        {/* 댓글 섹션 */}
+        <CommentsSection postId={post.id} />
       </div>
     </main>
   );
