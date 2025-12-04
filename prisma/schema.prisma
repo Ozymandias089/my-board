@@ -28,6 +28,10 @@ model Comment {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+    // 🔹 소프트 삭제 플래그
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+
   // Post와의 관계 (댓글은 항상 어떤 게시글에 속함)
   post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
 
