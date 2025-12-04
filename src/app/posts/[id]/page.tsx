@@ -8,11 +8,12 @@ import {
   CardContent,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageCircle, Scroll } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { PostActionsMenu } from "@/components/post-actions-menu";
-import { CommentsSection } from "@/components/comments/comment-section"; 
+import { CommentsSection } from "@/components/comments/comment-section";
+import { ScrollToCommentsOnHash } from "@/components/comments/scroll-to-comments-on-hash";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -26,9 +27,17 @@ export default async function PostDetailPage({ params }: PageProps) {
 
   const post = await prisma.post.findUnique({
     where: { id: postId },
+    include: {
+      _count: {
+        select: { comments: true },
+      },
+    },
   });
-
   if (!post) notFound();
+
+  const commentsCount = await prisma.comment.count({
+    where: { postId: post.id, isDeleted: false },
+  });
 
   return (
     <main className="min-h-screen bg-background text-foreground px-4 py-8 flex justify-center">
@@ -53,7 +62,11 @@ export default async function PostDetailPage({ params }: PageProps) {
               </CardDescription>
             </div>
 
-            <PostActionsMenu postId={post.id} createdAt={post.createdAt} postTitle={post.title} />
+            <PostActionsMenu
+              postId={post.id}
+              createdAt={post.createdAt}
+              postTitle={post.title}
+            />
           </CardHeader>
 
           <CardContent>
@@ -72,10 +85,16 @@ export default async function PostDetailPage({ params }: PageProps) {
                 {post.content}
               </ReactMarkdown>
             </article>
+            <div className="flex items-center gap-2 text-muted-foreground mt-4">
+              <MessageCircle className="w-4 h-4" /> {commentsCount}
+            </div>
           </CardContent>
         </Card>
+        <ScrollToCommentsOnHash />
         {/* 댓글 섹션 */}
-        <CommentsSection postId={post.id} />
+        <section id="comments">
+          <CommentsSection postId={post.id} />
+        </section>
       </div>
     </main>
   );

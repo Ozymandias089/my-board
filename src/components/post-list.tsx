@@ -16,9 +16,10 @@ import {
 } from "@/components/ui/context-menu";
 
 import { PostDeleteDialog } from "./post-delete-dialog";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, MessageCircle } from "lucide-react";
 import { PostActionsMenu } from "./post-actions-menu";
 import { EDIT_WINDOW_MS, POSTS_PAGE_SIZE } from "@/lib/constants";
+import { Button } from "./ui/button";
 
 // Prisma에서 오는 Post 타입을 대략적으로 정의
 type Post = {
@@ -27,6 +28,7 @@ type Post = {
   title: string;
   content: string;
   createdAt: string | Date;
+  commentsCount: number;
 };
 
 interface PostListProps {
@@ -168,6 +170,22 @@ export function PostList({
                     </CardHeader>
                     <CardContent>
                       <p className="text-sm text-muted-foreground">{preview}</p>
+
+                      <div className="mt-3 flex items-center justify-between">
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus: outline-none"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            router.push(`/posts/${post.id}#comments`)
+                          }}
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          <span>{post.commentsCount}</span>
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>

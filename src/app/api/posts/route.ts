@@ -71,20 +71,52 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const cursorParam = searchParams.get('cursor');
-  const limitParam = searchParams.get('limit');
+  const cursorParam = searchParams.get("cursor");
+  const limitParam = searchParams.get("limit");
 
   const limit = limitParam ? Math.min(Number(limitParam), 50) : 20;
   const cursor = cursorParam ? Number(cursorParam) : null;
 
+  // 1) 게시글 리스트 가져오기
   const posts = await prisma.post.findMany({
     where: cursor ? { id: { lt: cursor } } : undefined,
-    orderBy: { id: 'desc' },
+    orderBy: { id: "desc" },
     take: limit,
   });
 
+  // 2) 게시글 ID 목록
+  const postIds = posts.map((p) => p.id);
+
+  // 3) 삭제되지 않은 댓글 수 groupBy 로 가져오기
+  const commentCounts =
+    postIds.length === 0
+      ? []
+      : await prisma.comment.groupBy({
+          by: ["postId"],
+          where: {
+            postId: { in: postIds },
+            isDeleted: false,
+          },
+          _count: {
+            _all: true,
+          },
+        });
+
+  // 4) postId → count 매핑
+  const countMap = new Map<number, number>();
+  for (const row of commentCounts) {
+    countMap.set(row.postId, row._count._all);
+  }
+
+  // 5) 결과 객체 만들어서 commentsCount 포함
+  const items = posts.map((post) => ({
+    ...post,
+    commentsCount: countMap.get(post.id) ?? 0,
+  }));
+
+  // 6) nextCursor, hasMore 계산
   const nextCursor = posts.length > 0 ? posts[posts.length - 1].id : null;
   const hasMore = posts.length === limit;
 
-  return NextResponse.json({ items: posts, nextCursor, hasMore });
+  return NextResponse.json({ items, nextCursor, hasMore });
 }
