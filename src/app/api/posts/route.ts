@@ -6,13 +6,34 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { handle, title, content } = body;
 
-    // 기본 검증
-    if (!handle || typeof handle !== 'string' || handle.length < 2) {
+    // Handle validation
+    if (typeof handle !== "string") {
       return NextResponse.json(
-        { error: { code: 'INVALID_INPUT', message: 'Handle is invalid.' } },
-        { status: 400 }
+        { error: { code: "INVALID_INPUT", message: "Handle is invalid." } },
+        { status: 400 },
       );
     }
+
+    const handleTrimmed = handle.trim();
+    const handleOk =
+      /^[a-zA-Z0-9_-]+$/.test(handleTrimmed) &&
+      handle.length >= 3 &&
+      handle.length <= 24;
+
+    if (!handleOk) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_INPUT",
+            message:
+              "Handle must be 3–24 characters and contain only letters, numbers, '_' and '-'.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    // Title and content validation
     if (!title || typeof title !== 'string' || title.trim().length === 0) {
       return NextResponse.json(
         { error: { code: 'INVALID_INPUT', message: 'Title is required.' } },

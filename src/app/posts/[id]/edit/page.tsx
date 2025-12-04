@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { EditPostForm } from "./EditPostForm";
 import { Button } from "@/components/ui/button";
 import { Link } from "lucide-react";
-
-const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+import { EDIT_WINDOW_MS } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ id: string }>;

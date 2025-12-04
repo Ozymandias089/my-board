@@ -18,6 +18,7 @@ import {
 import { PostDeleteDialog } from "./post-delete-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { PostActionsMenu } from "./post-actions-menu";
+import { EDIT_WINDOW_MS, POSTS_PAGE_SIZE } from "@/lib/constants";
 
 // Prisma에서 오는 Post 타입을 대략적으로 정의
 type Post = {
@@ -33,8 +34,6 @@ interface PostListProps {
   initialNextCursor: number | null;
   initialHasMore: boolean;
 }
-
-const PAGE_SIZE = 10;
 
 export function PostList({
   initialPosts,
@@ -66,7 +65,7 @@ export function PostList({
     try {
       const params = new URLSearchParams({
         cursor: String(nextCursor),
-        limit: String(PAGE_SIZE),
+        limit: String(POSTS_PAGE_SIZE),
       });
 
       const res = await fetch(`/api/posts?${params.toString()}`, {
@@ -139,7 +138,6 @@ export function PostList({
               ? post.content.slice(0, 100) + "..."
               : post.content;
 
-          const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
           const canEdit = Date.now() - createdAt.getTime() <= EDIT_WINDOW_MS;
 
           return (

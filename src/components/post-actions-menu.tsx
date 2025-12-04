@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { PostDeleteDialog } from "./post-delete-dialog";
+import { EDIT_WINDOW_MS } from "@/lib/constants";
 
 interface PostActionsMenuProps {
   postId: number;
@@ -18,8 +19,6 @@ interface PostActionsMenuProps {
   createdAt: string | Date;
   onDeleted?: () => void; // ★ 리스트에서는 넘겨주고, 상세에서는 생략 가능
 }
-
-const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
 
 export function PostActionsMenu({
   postId,

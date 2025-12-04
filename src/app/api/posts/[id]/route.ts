@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-
-const EDIT_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+import { EDIT_WINDOW_MS } from "@/lib/constants";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

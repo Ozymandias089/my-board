@@ -16,4 +16,26 @@ model Post {
   content   String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  comments Comment[]
+}
+
+model Comment {
+  id        Int       @id @default(autoincrement())
+  postId    Int
+  parentId  Int?      // null이면 최상위 댓글, 있으면 대댓글
+  handle    String    @db.VarChar(64)
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Post와의 관계 (댓글은 항상 어떤 게시글에 속함)
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // 자기 자신에 대한 self-relation (대댓글 트리)
+  parent    Comment?  @relation("CommentToReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentToReplies")
+
+  // 조회 최적화를 위한 인덱스
+  @@index([postId])
+  @@index([parentId])
 }
