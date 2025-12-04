@@ -10,9 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { PostDeleteDialog } from "./post-delete-dialog";
+import { PostDeleteDialog } from "./mnu/post-delete-dialog";
 import { EDIT_WINDOW_MS } from "@/lib/constants";
-import { ShareLinkDialog } from "./share-dialog";
+import { ShareLinkDialog } from "./mnu/share-dialog";
 
 interface PostActionsMenuProps {
   postId: number;

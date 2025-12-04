@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { EditPostForm } from "./EditPostForm";
 import { Button } from "@/components/ui/button";
-import { Link } from "lucide-react";
+import Link from "next/link"; // 🔥 lucide-react가 아니라 next/link 사용해야 함
 import { EDIT_WINDOW_MS } from "@/lib/constants";
+import { PostEditor } from "@/components/post-editor";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -25,7 +25,7 @@ export default async function EditPostPage({ params }: PageProps) {
     notFound();
   }
 
-  // ★ 서버에서 한 번 더 3일 제한 체크
+  // 서버에서 3일 제한 체크
   const now = new Date();
   const diffMs = now.getTime() - post.createdAt.getTime();
 
@@ -53,5 +53,5 @@ export default async function EditPostPage({ params }: PageProps) {
     content: post.content,
   };
 
-  return <EditPostForm post={serializedPost} />;
+  return <PostEditor mode="edit" initialPost={serializedPost} />;
 }

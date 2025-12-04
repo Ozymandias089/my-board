@@ -1,27 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-import {
-  ContextMenu,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-} from "@/components/ui/context-menu";
-
-import { PostDeleteDialog } from "./post-delete-dialog";
-import { Pencil, Trash2, MessageCircle, Share2 } from "lucide-react";
-import { PostActionsMenu } from "./post-actions-menu";
 import { EDIT_WINDOW_MS, POSTS_PAGE_SIZE } from "@/lib/constants";
-import { Button } from "./ui/button";
-import { ShareLinkDialog } from "./share-dialog";
 
+import { PostPreviewCard } from "./post-preview-card";
+import { PostContextMenu } from "./mnu/post-context-menu";
 // Prisma에서 오는 Post 타입을 대략적으로 정의
 type Post = {
   id: number;
@@ -52,13 +40,6 @@ export function PostList({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // ★ 삭제 다이얼로그 상태
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Post | null>(null);
-
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [shareUrl, setShareUrl] = useState("");
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -134,116 +115,26 @@ export function PostList({
         </p>
       ) : (
         posts.map((post) => {
-          const createdAt =
-            typeof post.createdAt === "string"
-              ? new Date(post.createdAt)
-              : post.createdAt;
-
-          const preview =
-            post.content.length > 100
-              ? post.content.slice(0, 100) + "..."
-              : post.content;
-
-          const canEdit = Date.now() - createdAt.getTime() <= EDIT_WINDOW_MS;
+          const handleDeleted = () => {
+            setPosts((prev) => prev.filter((p) => p.id !== post.id));
+          };
 
           return (
-            <ContextMenu key={post.id}>
-              <ContextMenuTrigger asChild>
-                <Link href={`/posts/${post.id}`} className="block">
-                  <Card className="relative hover:bg-accent/60 transition-colors cursor-pointer">
-                    {/* 우측 상단 케밥 메뉴 */}
-                    <div className="absolute top-2 right-2 z-10">
-                      <PostActionsMenu
-                        postId={post.id}
-                        postTitle={post.title}
-                        createdAt={post.createdAt}
-                        onDeleted={() => {
-                          // ★ 삭제 성공 시 리스트에서 해당 게시글 제거
-                          setPosts((prev) =>
-                            prev.filter((p) => p.id !== post.id)
-                          );
-                        }}
-                      />
-                    </div>
-
-                    <CardHeader>
-                      <CardTitle className="text-lg">{post.title}</CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        {post.handle} · {createdAt.toLocaleDateString()}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">{preview}</p>
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus: outline-none"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            router.push(`/posts/${post.id}#comments`);
-                          }}
-                        >
-                          <MessageCircle className="w-4 h-4" />
-                          <span>{post.commentsCount}</span>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </ContextMenuTrigger>
-
-              {/* 우클릭/롱프레스 컨텍스트 메뉴 */}
-              <ContextMenuContent>
-                <ContextMenuItem
-                  disabled={!canEdit}
-                  onClick={() => {
-                    if (!canEdit) return;
-                    router.push(`/posts/${post.id}/edit`);
-                  }}
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Edit
-                  {!canEdit && (
-                    <span className="ml-2 text-[10px] uppercase text-muted-foreground">
-                      expired
-                    </span>
-                  )}
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-
-                <ContextMenuItem
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
-                    setShareUrl(`${base}/posts/${post.id}`);
-                    setShareDialogOpen(true);
-                  }}
-                >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-
-                <ContextMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={(e) => {
-                    // 상세 페이지로 이동되는 기본 클릭 동작 방지
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDeleteTarget(post);
-                    setDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+            <PostContextMenu
+              key={post.id}
+              post={post}
+              onDeleted={handleDeleted}
+            >
+              <PostPreviewCard
+                post={post}
+                onDeleted={handleDeleted}
+                onCommentsClick={(e: MouseEvent<HTMLButtonElement>) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  router.push(`/posts/${post.id}#comments`);
+                }}
+              />
+            </PostContextMenu>
           );
         })
       )}
@@ -275,48 +166,6 @@ export function PostList({
           You&apos;ve reached the end.
         </p>
       )}
-      {/* ★ 공용 삭제 AlertDialog */}
-      <PostDeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open);
-          if (!open) {
-            setDeleteTarget(null);
-          }
-        }}
-        postTitle={deleteTarget?.title ?? "this post"}
-        onConfirm={async () => {
-          if (!deleteTarget) return;
-
-          try {
-            const res = await fetch(`/api/posts/${deleteTarget.id}`, {
-              method: "DELETE",
-            });
-
-            if (!res.ok) {
-              const data = await res.json().catch(() => null);
-              const message =
-                data?.error?.message || "Failed to delete this post.";
-              alert(message);
-              return;
-            }
-
-            // ★ 목록에서 제거
-            setPosts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
-
-            setDeleteDialogOpen(false);
-            setDeleteTarget(null);
-          } catch (e) {
-            console.error(e);
-            alert("An unexpected error occurred while deleting the post.");
-          }
-        }}
-      />
-      <ShareLinkDialog
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-        url={shareUrl}
-      />
     </section>
   );
 }
